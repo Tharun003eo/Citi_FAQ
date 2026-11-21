@@ -1,0 +1,209 @@
+
+Karat interview question-Manoj.txt
+100%
+Theory Questions
+ 
+1)What is the relationship between HashCode() and Equals() in java ?
+2)What system design concepts would you use to make your application more testable
+3)What is dependency injection and how does it solve complex problems in your application ?
+4)When does object promotion happen in the heap?
+
+Code
+/*
+We are building the analytics back-end for a music streaming platform. The system
+tracks songs and play events. A play is "completed" when listenedSeconds >= the
+song's duration, and "skipped" otherwise.
+
+To begin with, we present you with two tasks:
+1-1) Read through and understand the code below. Feel free to run it.
+1-2) The test for MusicLibrary is not passing due to bugs in the code.
+     Make the necessary changes to MusicLibrary to fix the bugs.
+*/
+import java.util.*;
+
+class Song {
+    public int songId;
+    public String title;
+    public String artist;
+    public int durationSeconds;
+    public String description;
+    public String album;
+    public Integer releaseYear;
+    public String genre;
+
+    public Song(int songId, String title, String artist, int durationSeconds) {
+        this.songId = songId;
+        this.title = title;
+        this.artist = artist;
+        this.durationSeconds = durationSeconds;
+        this.description = null;
+        this.album = null;
+        this.releaseYear = null;
+        this.genre = null;
+    }
+
+    public Song(int songId, String title, String artist, int durationSeconds,
+                String description, String album, Integer releaseYear, String genre) {
+        this.songId = songId;
+        this.title = title;
+        this.artist = artist;
+        this.durationSeconds = durationSeconds;
+        this.description = description;
+        this.album = album;
+        this.releaseYear = releaseYear;
+        this.genre = genre;
+    }
+}
+
+class PlayEvent {
+    public int playId;
+    public int userId;
+    public int songId;
+    public int listenedSeconds;
+    public int timestamp;
+
+    public PlayEvent(int playId, int userId, int songId, int listenedSeconds, int timestamp) {
+        this.playId = playId;
+        this.userId = userId;
+        this.songId = songId;
+        this.listenedSeconds = listenedSeconds;
+        this.timestamp = timestamp;
+    }
+}
+
+class ListenerStats {
+    public int totalPlays;
+    public int uniqueSongs;
+    public double completionRate;
+
+    public ListenerStats(int totalPlays, int uniqueSongs, double completionRate) {
+        this.totalPlays = totalPlays;
+        this.uniqueSongs = uniqueSongs;
+        this.completionRate = completionRate;
+    }
+}
+
+class MusicLibrary {
+    public Map<Integer, Song> songs;
+    public List<PlayEvent> playEvents;
+
+    public MusicLibrary() {
+        songs = new HashMap<>();
+        playEvents = new ArrayList<>();
+    }
+
+    public void addSong(Song song) {
+        songs.put(song.songId, song);
+    }
+
+    public void addPlayEvent(PlayEvent event) {
+        playEvents.add(event);
+    }
+
+    private boolean isCompleted(PlayEvent event) {
+        // A play is completed when listenedSeconds reaches the song's duration.
+        Song song = songs.get(event.songId);
+        return event.listenedSeconds >= song.durationSeconds;
+    }
+
+    public ListenerStats testGetListenerStats(int userId) {
+        /*
+            Return statistics for a single user:
+            * totalPlays:     total number of play events by this user
+            * uniqueSongs:    number of distinct songs this user has played (including skipped plays)
+            * completionRate: fraction of this user's plays that were completed,
+                              expressed as a value between 0.0 and 1.0
+        */
+        List<PlayEvent> userEvents = new ArrayList<>();
+        for (PlayEvent e : playEvents) {
+            if (e.userId == userId) {
+                userEvents.add(e);
+            }
+        }
+
+        List<PlayEvent> completedEvents = new ArrayList<>();
+        for (PlayEvent e : userEvents) {
+            if (isCompleted(e)) {
+                completedEvents.add(e);
+            }
+        }
+        int totalPlays = completedEvents.size();
+      System.out.println(totalPlays);
+        Set<Integer> uniqueSet = new HashSet<>();
+        for (PlayEvent e : completedEvents) {
+            uniqueSet.add(e.songId);
+        }
+        int uniqueSongs = uniqueSet.size();
+       
+        double completionRate;
+        if (totalPlays == 0) {
+            completionRate = 0.0;
+        } else {
+            completionRate = (double) completedEvents.size() / userEvents.size();
+        }
+
+        return new ListenerStats(totalPlays, uniqueSongs, completionRate);
+    }
+}
+
+public class Solution {
+    public static void main(String[] args) {
+        testGetListenerStats();
+        System.out.println("All tests pass!");
+    }
+
+    public static void testGetListenerStats() {
+        System.out.println("Running testGetListenerStats");
+        MusicLibrary lib = new MusicLibrary();
+
+        // Catalog: 3 songs.
+        lib.addSong(new Song(101, "Song A", "Artist 1", 180));
+        lib.addSong(new Song(102, "Song B", "Artist 2", 200));
+        lib.addSong(new Song(103, "Song C", "Artist 1", 240));
+      
+        // User 1: 4 plays total
+        //   - song 101 completed (180 of 180)
+        //   - song 102 completed (220 of 200)
+        //   - song 101 skipped  (50 of 180)
+        //   - song 103 skipped  (100 of 240)
+        // Expected: totalPlays = 4, uniqueSongs = 3, completionRate = 0.5
+        lib.addPlayEvent(new PlayEvent(1, 1, 101, 180, 1000));
+        lib.addPlayEvent(new PlayEvent(2, 1, 102, 220, 1100));
+        lib.addPlayEvent(new PlayEvent(3, 1, 101, 50,  1200));
+        lib.addPlayEvent(new PlayEvent(4, 1, 103, 100, 1300));
+       
+        // User 2: 2 plays total
+        //   - song 102 completed (200 of 200)
+        //   - song 103 completed (250 of 240)
+        // Expected: totalPlays = 2, uniqueSongs = 2, completionRate = 1.0
+        lib.addPlayEvent(new PlayEvent(5, 2, 102, 200, 2000));
+        lib.addPlayEvent(new PlayEvent(6, 2, 103, 250, 2100));
+        
+        
+        ListenerStats statsUser1 = lib.testGetListenerStats(1);
+        assert statsUser1.totalPlays == 4 :
+            "totalPlays should be 4, was " + statsUser1.totalPlays;
+            
+        assert statsUser1.uniqueSongs == 3 :
+            "uniqueSongs should be 3, was " + statsUser1.uniqueSongs;
+        assert Math.abs(statsUser1.completionRate - 0.5) < 1e-4 :
+            "completionRate should be 0.5, was " + statsUser1.completionRate;
+       
+        ListenerStats statsUser2 = lib.testGetListenerStats(2);
+        assert statsUser2.totalPlays == 2 :
+            "totalPlays should be 2, was " + statsUser2.totalPlays;
+        assert statsUser2.uniqueSongs == 2 :
+            "uniqueSongs should be 2, was " + statsUser2.uniqueSongs;
+        assert Math.abs(statsUser2.completionRate - 1.0) < 1e-4 :
+            "completionRate should be 1.0, was " + statsUser2.completionRate;
+
+        ListenerStats statsUser3 = lib.testGetListenerStats(3);
+        assert statsUser3.totalPlays == 0 :
+            "totalPlays should be 0, was " + statsUser3.totalPlays;
+        assert statsUser3.uniqueSongs == 0 :
+            "uniqueSongs should be 0, was " + statsUser3.uniqueSongs;
+        assert Math.abs(statsUser3.completionRate - 0.0) < 1e-4 :
+            "completionRate should be 0.0, was " + statsUser3.completionRate;
+    }
+}
+Displaying Gym Question - Type 2.txt.
